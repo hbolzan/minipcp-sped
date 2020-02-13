@@ -1,0 +1,38 @@
+object FormAppLog: TFormAppLog
+  Left = 809
+  Height = 458
+  Top = 163
+  Width = 718
+  Caption = 'Log do Sistema'
+  ClientHeight = 458
+  ClientWidth = 718
+  Font.Height = -12
+  Font.Name = 'Verdana'
+  Position = poScreenCenter
+  Scaled = False
+  LCLVersion = '1.6.2.0'
+  object Panel1: TPanel
+    Left = 0
+    Height = 458
+    Top = 0
+    Width = 718
+    Align = alClient
+    BevelOuter = bvNone
+    ClientHeight = 458
+    ClientWidth = 718
+    TabOrder = 0
+    object MemoLog: TMemo
+      Left = 0
+      Height = 458
+      Top = 0
+      Width = 718
+      Align = alClient
+      BorderStyle = bsNone
+      Font.Height = -12
+      Font.Name = 'Courier New'
+      ParentFont = False
+      ScrollBars = ssAutoBoth
+      TabOrder = 0
+    end
+  end
+end

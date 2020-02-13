@@ -1,0 +1,7 @@
+object DMPrincipal: TDMPrincipal
+  OldCreateOrder = False
+  Height = 150
+  HorizontalOffset = 410
+  VerticalOffset = 474
+  Width = 150
+end

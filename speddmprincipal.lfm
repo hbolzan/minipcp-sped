@@ -1,0 +1,24 @@
+object DMPrincipal: TDMPrincipal
+  OldCreateOrder = False
+  Height = 150
+  HorizontalOffset = 419
+  VerticalOffset = 127
+  Width = 150
+  object ZConnection: TZConnection
+    ControlsCodePage = cCP_UTF8
+    AutoEncodeStrings = False
+    Properties.Strings = (
+      'codepage='
+      'controls_cp=CP_UTF8'
+    )
+    Port = 0
+    Protocol = 'postgresql-9'
+    left = 24
+    top = 16
+  end
+  object ZReadOnlyQuery1: TZReadOnlyQuery
+    Params = <>
+    left = 22
+    top = 72
+  end
+end
