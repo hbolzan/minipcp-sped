@@ -6,6 +6,7 @@ interface
 
 uses
   SpedCommonTypes, SpedCommonProcs,
+  SpedQueries, SpedBlocoK,
   SpedDMPrincipal, SpedAppLog,
   ACBrEFDBlocos, ACBrEFDBloco_K,
   Classes, SysUtils, FileUtil, ZDataset,
@@ -51,14 +52,6 @@ type
     function ProximaPosicaoDeEstoque(Posicao: TPosicaoDeEstoque; Movimentacao: TZReadOnlyQuery): TPosicaoDeEstoque;
     function AjustarPosicaoDeEstoque(PosicaoAtual, NovaPosicao: TPosicaoDeEstoque): TPosicaoDeEstoque;
     function PosicaoDeEstoque(QueryEstoque: TZReadOnlyQuery): TPosicaoDeEstoque;
-    function PosicaoDeEstoqueInicial(DataFinal: TDate): TZReadOnlyQuery;
-    function MovimentacaoPorProduto(Posicao: TPosicaoDeEstoque): TZReadOnlyQuery;
-    function PosicaoDeEstoqueInicialSQL(DataFim: TDate): String;
-    function MovimentacaoPorProdutoSQL(TipoDeEstoque, Tipo: Integer; Codigo: String; Data: TDate): String;
-
-    procedure AdicionarRegistrosBlocoK(ACBrSPEDFiscal: TACBrSPEDFiscal; ProgressBar: TProgressBar;
-        EstoqueFinal: TPosicaoDeEstoqueArray; DataFim: TDate);
-    function TipoDeEstoqueToIndEst(TipoDeEstoque: Integer): TACBrIndEstoque;
   public
     { public declarations }
   end;
@@ -114,7 +107,7 @@ function TFormSpedPrincipal.GerarSPED(ACBrSPEDFiscal: TACBrSPEDFiscal; Posicao: 
     DataIni, DataFim: TDateTime): TACBrSPEDFiscal;
 begin
   Result := ACBrSPEDFiscal;
-  AdicionarRegistrosBlocoK(Result, ProgressBarSPED, Posicao, DataFim);
+  AdicionarRegistrosBlocoK(Result, ProgressBarSPED, Posicao, DataIni, DataFim);
 end;
 
 procedure TFormSpedPrincipal.ConectarDB;
@@ -224,112 +217,10 @@ begin
   Result.Data := QueryEstoque.FieldByName('data').AsDateTime;
   Result.TipoDeEstoque := QueryEstoque.FieldByName('tipo_de_estoque').AsInteger;
   Result.TipoDeEscrituracao := QueryEstoque.FieldByName('tipo_de_escrituracao').AsInteger;
+  Result.ParticipanteId := QueryEstoque.FieldByName('participante').AsInteger;
   Result.Tipo := QueryEstoque.FieldByName('tipo').AsInteger;
   Result.Codigo := QueryEstoque.FieldByName('codigo').AsString;
   Result.Quantidade := QueryEstoque.FieldByName('quantidade').AsFloat;
-end;
-
-function TFormSpedPrincipal.PosicaoDeEstoqueInicial(DataFinal: TDate): TZReadOnlyQuery;
-begin
-  Result := TDMPrincipal.Instancia.GetReadOnlyQuery(PosicaoDeEstoqueInicialSQL(DataFinal));
-  Result.Open;
-end;
-
-function TFormSpedPrincipal.MovimentacaoPorProduto(Posicao: TPosicaoDeEstoque): TZReadOnlyQuery;
-begin
-  Result := TDMPrincipal.Instancia.GetReadOnlyQuery(
-    MovimentacaoPorProdutoSQL(
-      Posicao.TipoDeEstoque,
-      Posicao.Tipo,
-      Posicao.Codigo,
-      Posicao.Data
-    )
-  );
-  Result.Open;
-end;
-
-function TFormSpedPrincipal.PosicaoDeEstoqueInicialSQL(DataFim: TDate): String;
-begin
-  Result := StringReplace(
-    'select data, tipo_de_estoque, cast(0 as integer) as tipo_de_escrituracao, tipo, codigo, sum(quantidade) as quantidade from (' +
-    'select data, tipo_de_estoque, tipo, codigo, quantidade, ' +
-    'row_number() over (partition by tipo_de_estoque, tipo, codigo order by data desc) as rn ' +
-    'from estoques.escrituracao where tipo_de_escrituracao = 0 and data <= <periodo_fim>) q1 ' +
-    'where rn = 1 group by data, tipo_de_estoque, tipo, codigo ' +
-    'order by tipo, codigo, tipo_de_estoque',
-    '<periodo_fim>',
-    QuotedStr(FormatDateTime('yyyy-mm-dd', DataFim)),
-    [rfReplaceAll, rfIgnoreCase]
-  );
-end;
-
-function TFormSpedPrincipal.MovimentacaoPorProdutoSQL(TipoDeEstoque, Tipo: Integer; Codigo: String; Data: TDate): String;
-var
-  Sql: String;
-begin
-  Sql := 'select data, tipo_de_estoque, tipo_de_escrituracao, tipo, codigo, ' +
-    'cast(case when tipo_de_escrituracao = 1 then quantidade else -quantidade end as float) as quantidade ' +
-    'from estoques.escrituracao ' +
-    'where tipo_de_escrituracao > 0 and tipo_de_estoque = <tipo_de_estoque> and  tipo = <tipo> and ' +
-    'codigo = <codigo> and data > <data> ' +
-    'order by data, id';
-  Result := StringReplace(
-    StringReplace(
-      StringReplace(
-        StringReplace(Sql, '<tipo_de_estoque>', IntToStr(TipoDeEstoque), [rfReplaceAll, rfIgnoreCase]),
-        '<tipo>', IntToStr(Tipo), [rfReplaceAll, rfIgnoreCase]
-      ),
-      '<codigo>', QuotedStr(Codigo), [rfReplaceAll, rfIgnoreCase]
-    ),
-    '<data>', QuotedStr(FormatDateTime('yyyy-mm-dd', Data)), [rfReplaceAll, rfIgnoreCase]
-  );
-end;
-
-procedure TFormSpedPrincipal.AdicionarRegistrosBlocoK(ACBrSPEDFiscal: TACBrSPEDFiscal; ProgressBar: TProgressBar;
-  EstoqueFinal: TPosicaoDeEstoqueArray; DataFim: TDate);
-
-  procedure PreencherRegistroK100(RegistroK100: TRegistroK100; DataIni, DataFim: TDateTime);
-  begin
-    RegistroK100.DT_INI := DataIni;
-    RegistroK100.DT_FIN := DataFim;
-  end;
-
-  procedure PreencherRegistroK200(RegistroK200: TRegistroK200; Estoque: TPosicaoDeEstoque; DataFim: TDate);
-  begin
-    RegistroK200.DT_EST := DataFim;
-    RegistroK200.COD_ITEM := Estoque.Codigo;
-    RegistroK200.QTD := Estoque.Quantidade;
-    RegistroK200.IND_EST := TipoDeEstoqueToIndEst(Estoque.TipoDeEstoque);
-
-    (* ATENÇÃO PARA REGISTROS DE ESTOQUE DE TERCEIROS
-     *
-     * RegistroK200.COD_PART := ;
-     *
-    **)
-  end;
-
-var
-  Index: Integer;
-
-begin
-  ProgressBar.Max :=  Length(EstoqueFinal);
-  ACBrSPEDFiscal.Bloco_K.RegistroK001New.IND_MOV := imComDados;
-  PreencherRegistroK100(ACBrSPEDFiscal.Bloco_K.RegistroK100New, PeriodoIni.Date, PeriodoFim.Date);
-  for Index := 0 to Length(EstoqueFinal) - 1 do begin
-    ProgressBar.StepIt;
-    if (EstoqueFinal[Index].TipoDeEstoque = 1) or (EstoqueFinal[Index].TipoDeEstoque = 4) then begin
-      PreencherRegistroK200(ACBrSPEDFiscal.Bloco_K.RegistroK200New, EstoqueFinal[Index], DataFim);
-    end;
-  end;
-end;
-
-function TFormSpedPrincipal.TipoDeEstoqueToIndEst(TipoDeEstoque: Integer): TACBrIndEstoque;
-begin
-  case TipoDeEstoque of
-    1, 4: Result := estPropInformantePoder;
-    2: Result := estPropTerceirosInformante;
-    3: Result := estPropInformanteTerceiros;
-  end;
 end;
 
 end.

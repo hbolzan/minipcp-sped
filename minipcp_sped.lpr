@@ -8,7 +8,8 @@ uses
   {$ENDIF}{$ENDIF}
   Interfaces, // this includes the LCL widgetset
   Forms, datetimectrls, MyStr, zcomponent, SpedPrincipal, SpedDMPrincipal,
-  SpedCommonTypes, SpedAppLog, SpedCommonProcs
+  SpedCommonTypes, SpedAppLog, SpedCommonProcs, SpedQueries, SpedBlocoK,
+SpedBloco0
   { you can add units after this };
 
 {$R *.res}

@@ -21,6 +21,7 @@ type
     Data: TDate;
     Tipo: Integer;
     Codigo: String;
+    ParticipanteId,
     TipoDeEstoque,
     TipoDeEscrituracao: Integer;
     Quantidade: Real;
