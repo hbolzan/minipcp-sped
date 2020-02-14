@@ -28,6 +28,12 @@ type
   end;
   TPosicaoDeEstoqueArray = array of TPosicaoDeEstoque;
 
+  TUnidade = record
+    Codigo,
+    Descricao: String;
+  end;
+  TListaUnidades = array of TUnidade;
+
 implementation
 
 end.

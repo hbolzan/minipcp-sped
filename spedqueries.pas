@@ -11,6 +11,8 @@ uses
 
 function PosicaoDeEstoqueInicial(DataFinal: TDate): TZReadOnlyQuery;
 function MovimentacaoPorProduto(Posicao: TPosicaoDeEstoque): TZReadOnlyQuery;
+function GetUnidades: TZReadOnlyQuery;
+function NfeParametros: TZReadOnlyQuery;
 
 implementation
 
@@ -68,6 +70,25 @@ begin
       Posicao.Data
     )
   );
+  Result.Open;
+end;
+
+function UnidadesSQL: String;
+begin
+  Result := 'select distinct und.id, und.descricao from estoques.escrituracao esc ' +
+    'join produtos prd on prd.tipo = esc.tipo and prd.codigo = esc.codigo ' +
+    'join unidades und on und.id = prd.unidade order by und.id';
+end;
+
+function GetUnidades: TZReadOnlyQuery;
+begin
+  Result := TDMPrincipal.Instancia.GetReadOnlyQuery(UnidadesSQL);
+  Result.Open;
+end;
+
+function NfeParametros: TZReadOnlyQuery;
+begin
+  Result := TDMPrincipal.Instancia.GetReadOnlyQuery('select * from nfe.nfe_parametros');
   Result.Open;
 end;
 

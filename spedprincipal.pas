@@ -6,7 +6,7 @@ interface
 
 uses
   SpedCommonTypes, SpedCommonProcs,
-  SpedQueries, SpedBlocoK,
+  SpedQueries, SpedBlocoK, SpedBloco0,
   SpedDMPrincipal, SpedAppLog,
   ACBrEFDBlocos, ACBrEFDBloco_K,
   Classes, SysUtils, FileUtil, ZDataset,
@@ -36,11 +36,12 @@ type
     procedure FormCreate(Sender: TObject);
     procedure BotaoConectarClick(Sender: TObject);
     procedure BotaoGerarSPEDClick(Sender: TObject);
+    procedure ACBrSPEDFiscalError(const MsnError: AnsiString);
   private
     { private declarations }
     procedure IniciarAmbiente;
-    function GerarSPED(ACBrSPEDFiscal: TACBrSPEDFiscal; Posicao: TPosicaoDeEstoqueArray;
-      DataIni, DataFim: TDateTime): TACBrSPEDFiscal;
+    function GerarSPED(ACBrSPEDFiscal: TACBrSPEDFiscal; QueryParams: TZReadOnlyQuery;
+      Posicao: TPosicaoDeEstoqueArray; DataIni, DataFim: TDateTime): TACBrSPEDFiscal;
     procedure ConectarDB;
     procedure IniciarProgressBar(AProgressBar: TProgressBar);
     procedure GravarTXT(ACBrSPEDFiscal: TACBrSPEDFiscal; DataIni, DataFim: TDateTime);
@@ -52,6 +53,7 @@ type
     function ProximaPosicaoDeEstoque(Posicao: TPosicaoDeEstoque; Movimentacao: TZReadOnlyQuery): TPosicaoDeEstoque;
     function AjustarPosicaoDeEstoque(PosicaoAtual, NovaPosicao: TPosicaoDeEstoque): TPosicaoDeEstoque;
     function PosicaoDeEstoque(QueryEstoque: TZReadOnlyQuery): TPosicaoDeEstoque;
+    function ListaDeUnidades: TListaUnidades;
   public
     { public declarations }
   end;
@@ -85,15 +87,23 @@ procedure TFormSpedPrincipal.BotaoGerarSPEDClick(Sender: TObject);
 var
   Posicao: TPosicaoDeEstoqueArray;
   ACBrSPEDFiscal: TACBrSPEDFiscal;
+  QueryParams: TZReadOnlyQuery;
 begin
   IniciarAmbiente;
   Posicao := PosicaoDeEstoqueFinal(ProgressBarPosEstoque, PeriodoFim.Date);
-  ACBrSPEDFiscal := GerarSPED(IniciarComponenteSped(PeriodoIni.Date, PeriodoFim.Date), Posicao, PeriodoIni.Date, PeriodoFim.Date);
+  QueryParams := NfeParametros;
+  ACBrSPEDFiscal := GerarSPED(IniciarComponenteSped(PeriodoIni.Date, PeriodoFim.Date), QueryParams, Posicao, PeriodoIni.Date, PeriodoFim.Date);
   try
     GravarTXT(ACBrSPEDFiscal, PeriodoIni.Date, PeriodoFim.Date);
   finally
     ACBrSPEDFiscal.Free;
+    QueryParams.Free;
   end;
+end;
+
+procedure TFormSpedPrincipal.ACBrSPEDFiscalError(const MsnError: AnsiString);
+begin
+  TFormAppLog.Instancia.LogOneLine(MsnError);
 end;
 
 procedure TFormSpedPrincipal.IniciarAmbiente;
@@ -103,10 +113,12 @@ begin
   ConectarDB;
 end;
 
-function TFormSpedPrincipal.GerarSPED(ACBrSPEDFiscal: TACBrSPEDFiscal; Posicao: TPosicaoDeEstoqueArray;
-    DataIni, DataFim: TDateTime): TACBrSPEDFiscal;
+function TFormSpedPrincipal.GerarSPED(ACBrSPEDFiscal: TACBrSPEDFiscal; QueryParams: TZReadOnlyQuery;
+    Posicao: TPosicaoDeEstoqueArray; DataIni, DataFim: TDateTime): TACBrSPEDFiscal;
 begin
   Result := ACBrSPEDFiscal;
+  AdicionarRegistrosBloco0Basicos(ACBrSPEDFiscal, QueryParams);
+  AdicionarRegistros0190(Result, ListaDeUnidades);
   AdicionarRegistrosBlocoK(Result, ProgressBarSPED, Posicao, DataIni, DataFim);
 end;
 
@@ -143,6 +155,7 @@ begin
   Result := TACBrSPEDFiscal.Create(nil);
   Result.DT_INI := DataIni;
   Result.DT_FIN := DataFim;
+  Result.OnError := @ACBrSPEDFiscalError;
 end;
 
 function TFormSpedPrincipal.PosicaoDeEstoqueFinal(ProgressBar: TProgressBar; DataFim: TDate): TPosicaoDeEstoqueArray;
@@ -221,6 +234,27 @@ begin
   Result.Tipo := QueryEstoque.FieldByName('tipo').AsInteger;
   Result.Codigo := QueryEstoque.FieldByName('codigo').AsString;
   Result.Quantidade := QueryEstoque.FieldByName('quantidade').AsFloat;
+end;
+
+function TFormSpedPrincipal.ListaDeUnidades: TListaUnidades;
+var
+  QueryUnidades: TZReadOnlyQuery;
+var
+  Index: Integer;
+begin
+  Result := TListaUnidades.Create;
+  QueryUnidades := GetUnidades;
+  try
+    while not QueryUnidades.EOF do begin
+      Index := Length(Result);
+      SetLength(Result, Index + 1);
+      Result[Index].Codigo := QueryUnidades.FieldByName('id').AsString;
+      Result[Index].Descricao := QueryUnidades.FieldByName('descricao').AsString;
+      QueryUnidades.Next;
+    end;
+  finally
+    QueryUnidades.Free;
+  end;
 end;
 
 end.
