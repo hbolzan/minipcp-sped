@@ -49,7 +49,6 @@ end;
 
 class procedure TDMPrincipal.ConectarDB(Logger: TFormAppLog; ConfigFilePath: String);
 var
-  Params: TConnectionParams;
   DM: TDMPrincipal;
 begin
   DM := Self.Instancia;

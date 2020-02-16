@@ -5,13 +5,13 @@ unit SpedPrincipal;
 interface
 
 uses
+  MyStr,
   SpedCommonTypes, SpedCommonProcs,
   SpedQueries, SpedBlocoK, SpedBloco0,
   SpedDMPrincipal, SpedAppLog,
-  ACBrEFDBlocos, ACBrEFDBloco_K,
   Classes, SysUtils, FileUtil, ZDataset,
   SynEdit, DateTimePicker, ACBrSpedFiscal, Forms, Controls, Graphics, Dialogs,
-  StdCtrls, CustomDrawnControls, ExtCtrls, ComCtrls;
+  StdCtrls, ExtCtrls, ComCtrls;
 
 type
 
@@ -54,6 +54,8 @@ type
     function AjustarPosicaoDeEstoque(PosicaoAtual, NovaPosicao: TPosicaoDeEstoque): TPosicaoDeEstoque;
     function PosicaoDeEstoque(QueryEstoque: TZReadOnlyQuery): TPosicaoDeEstoque;
     function ListaDeUnidades: TListaUnidades;
+    function ListaDeProdutos: TListaProdutos;
+    function ListaDeParticipantes: TListaParticipantes;
   public
     { public declarations }
   end;
@@ -118,7 +120,9 @@ function TFormSpedPrincipal.GerarSPED(ACBrSPEDFiscal: TACBrSPEDFiscal; QueryPara
 begin
   Result := ACBrSPEDFiscal;
   AdicionarRegistrosBloco0Basicos(ACBrSPEDFiscal, QueryParams);
+  AdicionarRegistros0150(Result, ListaDeParticipantes);
   AdicionarRegistros0190(Result, ListaDeUnidades);
+  AdicionarRegistros0200(ACBrSPEDFiscal, ListaDeProdutos);
   AdicionarRegistrosBlocoK(Result, ProgressBarSPED, Posicao, DataIni, DataFim);
 end;
 
@@ -239,7 +243,6 @@ end;
 function TFormSpedPrincipal.ListaDeUnidades: TListaUnidades;
 var
   QueryUnidades: TZReadOnlyQuery;
-var
   Index: Integer;
 begin
   Result := TListaUnidades.Create;
@@ -254,6 +257,79 @@ begin
     end;
   finally
     QueryUnidades.Free;
+  end;
+end;
+
+function TFormSpedPrincipal.ListaDeProdutos: TListaProdutos;
+var
+  Index: Integer;
+  QueryProdutos: TZReadOnlyQuery;
+
+  function FromQueryRow(Query: TZReadOnlyQuery): TProduto;
+  begin
+    Result.Codigo := Query.FieldByName('codigo').AsString;
+    Result.Descricao := Query.FieldByName('descricao').AsString;
+    Result.CodigoDeBarras := Query.FieldByName('codigoean').AsString;
+    Result.Unidade := Query.FieldByName('unidade').AsString;
+    Result.NCM := Query.FieldByName('ncm').AsString;
+    Result.TipoDeItem := Query.FieldByName('tipo_item_bloco_k').AsInteger;
+    Result.AliquotaICMS := Query.FieldByName('aliq_icms').AsInteger;
+    Result.CodigoCEST := IIfStr(Query.FieldByName('cest').IsNull, '', Query.FieldByName('cest').AsString);
+
+    //Result.CodigoAnterior := Query.FieldByName('').AsString;
+    //Result.ExIPI := Query.FieldByName('').AsString;
+    //Result.CodigoLST := Query.FieldByName('').AsString;
+    //Result.Genero :=
+  end;
+
+begin
+  Result := TListaProdutos.Create;
+  QueryProdutos := GetProdutos;
+  try
+    while not QueryProdutos.EOF do begin
+      Index := Length(Result);
+      SetLength(Result, Index + 1);
+      Result[Index] := FromQueryRow(QueryProdutos);
+      QueryProdutos.Next;
+    end;
+  finally
+    QueryProdutos.Free;
+  end;
+end;
+
+function TFormSpedPrincipal.ListaDeParticipantes: TListaParticipantes;
+var
+  Index: Integer;
+  QueryParticipantes: TZReadOnlyQuery;
+
+  function FromQueryRow(Query: TZReadOnlyQuery): TParticipante;
+  begin
+    Result.Codigo := Query.FieldByName('id').AsString;
+    Result.Nome := Query.FieldByName('razaosocial').AsString;
+    Result.CNPJ := Query.FieldByName('cnpj').AsString;
+    Result.CPF := Query.FieldByName('cpf').AsString;
+    Result.InscricaoEstadual := Query.FieldByName('inscricao_estadual').AsString;
+    Result.CodigoSuframa := Query.FieldByName('codigo_suframa').AsString;
+    Result.Endereco := Query.FieldByName('endereco').AsString;
+    Result.Numero := Query.FieldByName('numero').AsString;
+    Result.Complemento := Query.FieldByName('complemento').AsString;
+    Result.Bairro := Query.FieldByName('bairro').AsString;
+    Result.CodigoPais := Query.FieldByName('pais').AsInteger;
+    Result.CodigoMunicipio := Query.FieldByName('ibge_municipio').AsInteger;
+  end;
+
+begin
+  Result := TListaParticipantes.Create;
+  QueryParticipantes := GetParticipantes;
+  try
+    while not QueryParticipantes.EOF do begin
+      Index := Length(Result);
+      SetLength(Result, Index + 1);
+      Result[Index] := FromQueryRow(QueryParticipantes);
+      QueryParticipantes.Next;
+    end;
+  finally
+    QueryParticipantes.Free;
   end;
 end;
 

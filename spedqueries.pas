@@ -9,12 +9,20 @@ uses
   ZDataset,
   Classes, SysUtils;
 
+function NfeParametros: TZReadOnlyQuery;
 function PosicaoDeEstoqueInicial(DataFinal: TDate): TZReadOnlyQuery;
 function MovimentacaoPorProduto(Posicao: TPosicaoDeEstoque): TZReadOnlyQuery;
 function GetUnidades: TZReadOnlyQuery;
-function NfeParametros: TZReadOnlyQuery;
+function GetProdutos: TZReadOnlyQuery;
+function GetParticipantes: TZReadOnlyQuery;
 
 implementation
+
+function NfeParametros: TZReadOnlyQuery;
+begin
+  Result := TDMPrincipal.Instancia.GetReadOnlyQuery('select * from nfe.nfe_parametros');
+  Result.Open;
+end;
 
 function PosicaoDeEstoqueInicialSQL(DataFim: TDate): String;
 begin
@@ -86,9 +94,37 @@ begin
   Result.Open;
 end;
 
-function NfeParametros: TZReadOnlyQuery;
+function ProdutosSQL: String;
 begin
-  Result := TDMPrincipal.Instancia.GetReadOnlyQuery('select * from nfe.nfe_parametros');
+  Result := 'select distinct prd.codigo, prd.descricao, prd.codigoean, prd.unidade, ' +
+    'tip.tipo_item_bloco_k, replace(ncm, ''.'', '''') as ncm, 18 as aliq_icms, cast(null as varchar(10)) as cest ' +
+    'from estoques.escrituracao esc join prd_tipos tip on tip.codigo = esc.tipo ' +
+    'join produtos prd on prd.tipo = esc.tipo and prd.codigo = esc.codigo ' +
+    'order by prd.codigo';
+end;
+
+function GetProdutos: TZReadOnlyQuery;
+begin
+  Result := TDMPrincipal.Instancia.GetReadOnlyQuery(ProdutosSQL);
+  Result.Open;
+end;
+
+function ParticipantesSQL: String;
+begin
+  Result := 'select distinct ' +
+    'par.id, par.razaosocial, par.cnpj, par.cpf, par.inscricao_estadual, par.codigo_suframa, ' +
+    'cast(par.tipo_de_logradouro || '' '' || par.nome_do_logradouro as varchar(60)) as endereco, ' +
+    'par.numero, par.complemento, par.bairro, par.pais, par.ibge_municipio ' +
+    'from ' +
+    '  estoques.escrituracao esc ' +
+    'join ' +
+    'view_nfe_participantes par ' +
+    'on par.id = esc.participante';
+end;
+
+function GetParticipantes: TZReadOnlyQuery;
+begin
+  Result := TDMPrincipal.Instancia.GetReadOnlyQuery(ParticipantesSQL);
   Result.Open;
 end;
 
