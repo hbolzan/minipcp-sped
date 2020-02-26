@@ -1,8 +1,8 @@
 object DMPrincipal: TDMPrincipal
   OldCreateOrder = False
   Height = 150
-  HorizontalOffset = 419
-  VerticalOffset = 127
+  HorizontalOffset = 420
+  VerticalOffset = 129
   Width = 150
   object ZConnection: TZConnection
     ControlsCodePage = cCP_UTF8

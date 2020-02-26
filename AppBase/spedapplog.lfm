@@ -1,7 +1,7 @@
 object FormAppLog: TFormAppLog
-  Left = 809
+  Left = 811
   Height = 458
-  Top = 163
+  Top = 165
   Width = 718
   Caption = 'Log do Sistema'
   ClientHeight = 458

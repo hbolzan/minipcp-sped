@@ -5,7 +5,7 @@ unit SpedQueries;
 interface
 
 uses
-  SpedDMPrincipal, SpedCommonTypes,
+  SpedDMPrincipal, SpedCommonTypes, SpedAppLog,
   ZDataset,
   Classes, SysUtils;
 
@@ -24,18 +24,33 @@ begin
   Result.Open;
 end;
 
+function ViewEscrituracao: String;
+begin
+  Result := 'select data, ' +
+    'case when tipo_de_estoque = 4 then 1 else tipo_de_estoque end as tipo_de_estoque, ' +
+    'tipo_de_escrituracao, tipo, codigo, sum(quantidade) as quantidade, participante ' +
+    'from estoques.escrituracao ' +
+    'group by data, case when tipo_de_estoque = 4 then 1 else tipo_de_estoque end, ' +
+    'tipo_de_escrituracao, tipo, codigo, participante';
+end;
+
 function PosicaoDeEstoqueInicialSQL(DataFim: TDate): String;
 begin
   Result := StringReplace(
-    'select data, tipo_de_estoque, cast(0 as integer) as tipo_de_escrituracao, participante, ' +
-    'tipo, codigo, sum(quantidade) as quantidade from (' +
-    'select data, tipo_de_estoque, participante, tipo, codigo, quantidade, ' +
-    'row_number() over (partition by tipo_de_estoque, tipo, codigo order by data desc) as rn ' +
-    'from estoques.escrituracao where tipo_de_escrituracao = 0 and data <= <periodo_fim>) q1 ' +
-    'where rn = 1 group by data, tipo_de_estoque, participante, tipo, codigo ' +
-    'order by tipo, codigo, tipo_de_estoque, participante',
-    '<periodo_fim>',
-    QuotedStr(FormatDateTime('yyyy-mm-dd', DataFim)),
+    StringReplace(
+      'select data, tipo_de_estoque, cast(0 as integer) as tipo_de_escrituracao, participante, ' +
+      'tipo, codigo, sum(quantidade) as quantidade from (' +
+      'select data, tipo_de_estoque, participante, tipo, codigo, quantidade, ' +
+      'row_number() over (partition by tipo_de_estoque, tipo, codigo order by data desc) as rn ' +
+      'from (<view_escrituracao>) q1 where tipo_de_escrituracao = 0 and data <= <periodo_fim>) q1 ' +
+      'where rn = 1 group by data, tipo_de_estoque, participante, tipo, codigo ' +
+      'order by tipo, codigo, tipo_de_estoque, participante',
+      '<periodo_fim>',
+      QuotedStr(FormatDateTime('yyyy-mm-dd', DataFim)),
+      [rfReplaceAll, rfIgnoreCase]
+    ),
+    '<view_escrituracao>',
+    ViewEscrituracao,
     [rfReplaceAll, rfIgnoreCase]
   );
 end;
@@ -52,19 +67,24 @@ var
 begin
   Sql := 'select data, tipo_de_estoque, tipo_de_escrituracao, participante, tipo, codigo, ' +
     'cast(case when tipo_de_escrituracao = 1 then quantidade else -quantidade end as float) as quantidade ' +
-    'from estoques.escrituracao ' +
+    'from (<view_escrituracao>) q1 ' +
     'where tipo_de_escrituracao > 0 and tipo_de_estoque = <tipo_de_estoque> and  tipo = <tipo> and ' +
     'codigo = <codigo> and data > <data> ' +
-    'order by data, id';
+    'order by data';
   Result := StringReplace(
     StringReplace(
       StringReplace(
-        StringReplace(Sql, '<tipo_de_estoque>', IntToStr(TipoDeEstoque), [rfReplaceAll, rfIgnoreCase]),
-        '<tipo>', IntToStr(Tipo), [rfReplaceAll, rfIgnoreCase]
+        StringReplace(
+          StringReplace(Sql, '<tipo_de_estoque>', IntToStr(TipoDeEstoque), [rfReplaceAll, rfIgnoreCase]),
+          '<tipo>', IntToStr(Tipo), [rfReplaceAll, rfIgnoreCase]
+        ),
+        '<codigo>', QuotedStr(Codigo), [rfReplaceAll, rfIgnoreCase]
       ),
-      '<codigo>', QuotedStr(Codigo), [rfReplaceAll, rfIgnoreCase]
+      '<data>', QuotedStr(FormatDateTime('yyyy-mm-dd', Data)), [rfReplaceAll, rfIgnoreCase]
     ),
-    '<data>', QuotedStr(FormatDateTime('yyyy-mm-dd', Data)), [rfReplaceAll, rfIgnoreCase]
+    '<view_escrituracao>',
+    ViewEscrituracao,
+    [rfReplaceAll, rfIgnoreCase]
   );
 end;
 
@@ -101,6 +121,7 @@ begin
     'from estoques.escrituracao esc join prd_tipos tip on tip.codigo = esc.tipo ' +
     'join produtos prd on prd.tipo = esc.tipo and prd.codigo = esc.codigo ' +
     'order by prd.codigo';
+  TFormAppLog.Instancia.LogOneLine(Result);
 end;
 
 function GetProdutos: TZReadOnlyQuery;

@@ -1,7 +1,7 @@
 object FormSpedPrincipal: TFormSpedPrincipal
-  Left = 797
+  Left = 799
   Height = 469
-  Top = 125
+  Top = 127
   Width = 688
   Caption = 'MiniPCP SPED'
   ClientHeight = 469
