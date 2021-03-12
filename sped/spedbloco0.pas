@@ -114,6 +114,7 @@ var
   Index: Integer;
 begin
   for Index := 0 to Length(Produtos)-1 do begin
+    TFormAppLog.Instancia.LogOneLine('* ADICINANDO PRODUTO ' + Produtos[Index].Codigo + ': ' + Produtos[Index].Descricao);
     AdicionarRegistro0200(ACBrSPEDFiscal.Bloco_0.Registro0200New, Produtos[Index]);
   end;
 end;

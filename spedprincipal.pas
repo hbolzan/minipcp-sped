@@ -119,10 +119,15 @@ function TFormSpedPrincipal.GerarSPED(ACBrSPEDFiscal: TACBrSPEDFiscal; QueryPara
     Posicao: TPosicaoDeEstoqueArray; DataIni, DataFim: TDateTime): TACBrSPEDFiscal;
 begin
   Result := ACBrSPEDFiscal;
+  TFormAppLog.Instancia.LogOneLine('*** Adicionando registros básicos ***');
   AdicionarRegistrosBloco0Basicos(ACBrSPEDFiscal, QueryParams);
+  TFormAppLog.Instancia.LogOneLine('*** Adicionando Registros 0150 ***');
   AdicionarRegistros0150(Result, ListaDeParticipantes);
+  TFormAppLog.Instancia.LogOneLine('*** Adicionando Registros 0190 ***');
   AdicionarRegistros0190(Result, ListaDeUnidades);
+  TFormAppLog.Instancia.LogOneLine('*** Adicionando Registros 0200 ***');
   AdicionarRegistros0200(ACBrSPEDFiscal, ListaDeProdutos);
+  TFormAppLog.Instancia.LogOneLine('*** Adicionando Registros Bloco K ***');
   AdicionarRegistrosBlocoK(Result, ProgressBarSPED, Posicao, DataIni, DataFim);
 end;
 

@@ -10,8 +10,8 @@ object FormSpedPrincipal: TFormSpedPrincipal
   Font.Name = 'Verdana'
   OnCreate = FormCreate
   Position = poScreenCenter
+  LCLVersion = '2.0.8.0'
   Scaled = False
-  LCLVersion = '1.6.2.0'
   Visible = True
   object PainelPrincipal: TPanel
     Left = 0

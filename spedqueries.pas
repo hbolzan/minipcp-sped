@@ -24,14 +24,31 @@ begin
   Result.Open;
 end;
 
-function ViewEscrituracao: String;
+function ViewEscrituracao(DataFim: TDate): String;
 begin
-  Result := 'select data, ' +
-    'case when tipo_de_estoque = 4 then 1 else tipo_de_estoque end as tipo_de_estoque, ' +
-    'tipo_de_escrituracao, tipo, codigo, sum(quantidade) as quantidade, participante ' +
-    'from estoques.escrituracao ' +
-    'group by data, case when tipo_de_estoque = 4 then 1 else tipo_de_estoque end, ' +
-    'tipo_de_escrituracao, tipo, codigo, participante';
+  Result := StringReplace(
+    'select                                                                                                                    ' +
+    '  coalesce(escr.data, <data_fim>) as data,                                                                                ' +
+    '  case when escr.tipo_de_estoque = 4 then 1 else coalesce(escr.tipo_de_estoque, 1) end as tipo_de_estoque,                ' +
+    '  escr.tipo_de_escrituracao, prd.tipo, prd.codigo,                                                                        ' +
+    '  sum(case when escr.tipo_de_escrituracao = 2 then -escr.quantidade else coalesce(escr.quantidade, 0) end) as quantidade, ' +
+    '  escr.participante                                                                                                       ' +
+    'from                                                                                                                      ' +
+    '  produtos prd                                                                                                            ' +
+    'left join                                                                                                                 ' +
+    '  estoques.escrituracao escr                                                                                              ' +
+    '  on escr.tipo = prd.tipo and escr.codigo = prd.codigo                                                                    ' +
+    'group                                                                                                                     ' +
+    '  by escr.data,                                                                                                           ' +
+    '  case when escr.tipo_de_estoque = 4 then 1 else coalesce(escr.tipo_de_estoque, 1) end,                                   ' +
+    '  escr.tipo_de_escrituracao, prd.tipo, prd.codigo, escr.participante                                                      ',
+
+    '<data_fim>',
+    QuotedStr(FormatDateTime('yyyy-mm-dd', DataFim)),
+    [rfReplaceAll, rfIgnoreCase]
+  );
+
+
 end;
 
 function PosicaoDeEstoqueInicialSQL(DataFim: TDate): String;
@@ -50,7 +67,7 @@ begin
       [rfReplaceAll, rfIgnoreCase]
     ),
     '<view_escrituracao>',
-    ViewEscrituracao,
+    ViewEscrituracao(DataFim),
     [rfReplaceAll, rfIgnoreCase]
   );
 end;
@@ -66,10 +83,9 @@ var
   Sql: String;
 begin
   Sql := 'select data, tipo_de_estoque, tipo_de_escrituracao, participante, tipo, codigo, ' +
-    'cast(case when tipo_de_escrituracao = 1 then quantidade else -quantidade end as float) as quantidade ' +
-    'from (<view_escrituracao>) q1 ' +
+    'quantidade from (<view_escrituracao>) q1 ' +
     'where tipo_de_escrituracao > 0 and tipo_de_estoque = <tipo_de_estoque> and  tipo = <tipo> and ' +
-    'codigo = <codigo> and data > <data> ' +
+    'codigo = <codigo> and data <= <data> ' +
     'order by data';
   Result := StringReplace(
     StringReplace(
@@ -83,7 +99,7 @@ begin
       '<data>', QuotedStr(FormatDateTime('yyyy-mm-dd', Data)), [rfReplaceAll, rfIgnoreCase]
     ),
     '<view_escrituracao>',
-    ViewEscrituracao,
+    ViewEscrituracao(Data),
     [rfReplaceAll, rfIgnoreCase]
   );
 end;
