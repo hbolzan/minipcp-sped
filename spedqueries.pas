@@ -11,7 +11,7 @@ uses
 
 function NfeParametros: TZReadOnlyQuery;
 function PosicaoDeEstoqueInicial(DataFinal: TDate): TZReadOnlyQuery;
-function MovimentacaoPorProduto(Posicao: TPosicaoDeEstoque): TZReadOnlyQuery;
+function MovimentacaoPorProduto(Posicao: TPosicaoDeEstoque; DataFim: TDate): TZReadOnlyQuery;
 function GetUnidades: TZReadOnlyQuery;
 function GetProdutos: TZReadOnlyQuery;
 function GetParticipantes: TZReadOnlyQuery;
@@ -27,21 +27,34 @@ end;
 function ViewEscrituracao(DataFim: TDate): String;
 begin
   Result := StringReplace(
-    'select                                                                                                                    ' +
-    '  coalesce(escr.data, <data_fim>) as data,                                                                                ' +
-    '  case when escr.tipo_de_estoque = 4 then 1 else coalesce(escr.tipo_de_estoque, 1) end as tipo_de_estoque,                ' +
-    '  escr.tipo_de_escrituracao, prd.tipo, prd.codigo,                                                                        ' +
-    '  sum(case when escr.tipo_de_escrituracao = 2 then -escr.quantidade else coalesce(escr.quantidade, 0) end) as quantidade, ' +
-    '  escr.participante                                                                                                       ' +
-    'from                                                                                                                      ' +
-    '  produtos prd                                                                                                            ' +
-    'left join                                                                                                                 ' +
-    '  estoques.escrituracao escr                                                                                              ' +
-    '  on escr.tipo = prd.tipo and escr.codigo = prd.codigo                                                                    ' +
-    'group                                                                                                                     ' +
-    '  by escr.data,                                                                                                           ' +
-    '  case when escr.tipo_de_estoque = 4 then 1 else coalesce(escr.tipo_de_estoque, 1) end,                                   ' +
-    '  escr.tipo_de_escrituracao, prd.tipo, prd.codigo, escr.participante                                                      ',
+    'select                                                                                                                     ' +
+    '  coalesce(escr.data, <data_fim>) as data,                                                                                 ' +
+    '  coalesce(case when escr.tipo_de_estoque = 4 then 1 else coalesce(escr.tipo_de_estoque, 1) end, 1) as tipo_de_estoque,    ' +
+    '  coalesce(escr.tipo_de_escrituracao, 0) as tipo_de_escrituracao, prd.tipo, prd.codigo,                                    ' +
+    '  sum(case when escr.tipo_de_escrituracao = 2 then -escr.quantidade else coalesce(escr.quantidade, 0) end) as quantidade,  ' +
+    '  escr.participante                                                                                                        ' +
+    'from                                                                                                                       ' +
+    '  produtos prd                                                                                                             ' +
+    'left join                                                                                                                  ' +
+    '  estoques.escrituracao escr                                                                                               ' +
+    '  on escr.tipo = prd.tipo and escr.codigo = prd.codigo                                                                     ' +
+    'group                                                                                                                      ' +
+    '  by coalesce(escr.data, <data_fim>),                                                                                      ' +
+    '  coalesce(case when escr.tipo_de_estoque = 4 then 1 else coalesce(escr.tipo_de_estoque, 1) end, 1),                       ' +
+    '  coalesce(escr.tipo_de_escrituracao, 0), prd.tipo, prd.codigo, escr.participante                                          ' +
+    'union                                                                                                                      ' +
+    'select distinct                                                                                                            ' +
+    '  cast(''2019-12-31'' as date) as data,                                                                                    ' +
+    '  cast(1 as integer) as tipo_de_estoque,                                                                                   ' +
+    '  cast(0 as integer) as tipo_de_escrituracao,                                                                              ' +
+    '  tipo,                                                                                                                    ' +
+    '  codigo,                                                                                                                  ' +
+    '  cast(0 as float) as quantidade,                                                                                          ' +
+    '  cast(null as integer) as participante                                                                                    ' +
+    'from                                                                                                                       ' +
+    '  estoques.escrituracao                                                                                                    ' +
+    'where                                                                                                                      ' +
+    '  codigo not in (select codigo from estoques.escrituracao where tipo_de_escrituracao = 0)                                  ',
 
     '<data_fim>',
     QuotedStr(FormatDateTime('yyyy-mm-dd', DataFim)),
@@ -51,15 +64,26 @@ begin
 
 end;
 
+(**
+ *
+ * Por que o estoque inicial recebe a data final?
+ *
+ * Porque ele só olha para o último registro de estoque inicial (tipo_de_escrituracao = 0)
+ * em data menor ou igal à data final, então ele só vai devolver
+ * os registros mais recentes de estoque inicial de cada produto
+ *
+ *)
 function PosicaoDeEstoqueInicialSQL(DataFim: TDate): String;
 begin
   Result := StringReplace(
     StringReplace(
       'select data, tipo_de_estoque, cast(0 as integer) as tipo_de_escrituracao, participante, ' +
-      'tipo, codigo, sum(quantidade) as quantidade from (' +
+      'tipo, codigo, coalesce(sum(quantidade), 0.0) as quantidade from (' +
       'select data, tipo_de_estoque, participante, tipo, codigo, quantidade, ' +
       'row_number() over (partition by tipo_de_estoque, tipo, codigo order by data desc) as rn ' +
-      'from (<view_escrituracao>) q1 where tipo_de_escrituracao = 0 and data <= <periodo_fim>) q1 ' +
+      'from (<view_escrituracao>) q1 where tipo_de_escrituracao = 0 and data <= <periodo_fim> ' +
+      'and codigo in (select codigo from estoques.escrituracao) ' +
+      ') q1 ' +
       'where rn = 1 group by data, tipo_de_estoque, participante, tipo, codigo ' +
       'order by tipo, codigo, tipo_de_estoque, participante',
       '<periodo_fim>',
@@ -87,6 +111,7 @@ begin
     'where tipo_de_escrituracao > 0 and tipo_de_estoque = <tipo_de_estoque> and  tipo = <tipo> and ' +
     'codigo = <codigo> and data <= <data> ' +
     'order by data';
+
   Result := StringReplace(
     StringReplace(
       StringReplace(
@@ -104,14 +129,14 @@ begin
   );
 end;
 
-function MovimentacaoPorProduto(Posicao: TPosicaoDeEstoque): TZReadOnlyQuery;
+function MovimentacaoPorProduto(Posicao: TPosicaoDeEstoque; DataFim: TDate): TZReadOnlyQuery;
 begin
   Result := TDMPrincipal.Instancia.GetReadOnlyQuery(
     MovimentacaoPorProdutoSQL(
       Posicao.TipoDeEstoque,
       Posicao.Tipo,
       Posicao.Codigo,
-      Posicao.Data
+      DataFim
     )
   );
   Result.Open;

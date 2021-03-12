@@ -49,7 +49,7 @@ type
     function IniciarComponenteSped(DataIni, DataFim: TDateTime): TACBrSPEDFiscal;
     function PosicaoDeEstoqueFinal(ProgressBar: TProgressBar; DataFim: TDate): TPosicaoDeEstoqueArray;
     function PosicaoDeEstoqueArrayAppend(AnArray: TPosicaoDeEstoqueArray; Posicao: TPosicaoDeEstoque): TPosicaoDeEstoqueArray;
-    function PosicaoDeEstoqueFinalPorProduto(QueryEstoqueInicial: TZReadOnlyQuery): TPosicaoDeEstoque;
+    function PosicaoDeEstoqueFinalPorProduto(QueryEstoqueInicial: TZReadOnlyQuery; DataFim: TDate): TPosicaoDeEstoque;
     function ProximaPosicaoDeEstoque(Posicao: TPosicaoDeEstoque; Movimentacao: TZReadOnlyQuery): TPosicaoDeEstoque;
     function AjustarPosicaoDeEstoque(PosicaoAtual, NovaPosicao: TPosicaoDeEstoque): TPosicaoDeEstoque;
     function PosicaoDeEstoque(QueryEstoque: TZReadOnlyQuery): TPosicaoDeEstoque;
@@ -177,7 +177,7 @@ begin
   try
     while not QueryEstoqueInicial.Eof do begin
       ProgressBar.StepIt;
-      Result := PosicaoDeEstoqueArrayAppend(Result, PosicaoDeEstoqueFinalPorProduto(QueryEstoqueInicial));
+      Result := PosicaoDeEstoqueArrayAppend(Result, PosicaoDeEstoqueFinalPorProduto(QueryEstoqueInicial, DataFim));
       QueryEstoqueInicial.Next;
     end;
   finally
@@ -190,21 +190,24 @@ function TFormSpedPrincipal.PosicaoDeEstoqueArrayAppend(AnArray: TPosicaoDeEstoq
 var
   NewIndex: Integer;
 begin
+  if Posicao.Quantidade = 0 then begin
+    Exit(AnArray);
+  end;
   NewIndex := Length(AnArray);
   SetLength(AnArray, NewIndex + 1);
   AnArray[NewIndex] := Posicao;
   Result := AnArray;
 end;
 
-function TFormSpedPrincipal.PosicaoDeEstoqueFinalPorProduto(QueryEstoqueInicial: TZReadOnlyQuery): TPosicaoDeEstoque;
+function TFormSpedPrincipal.PosicaoDeEstoqueFinalPorProduto(QueryEstoqueInicial: TZReadOnlyQuery; DataFim: TDate): TPosicaoDeEstoque;
 var
   PosicaoInicial: TPosicaoDeEstoque;
   Movimentacao: TZReadOnlyQuery;
 begin
   PosicaoInicial := PosicaoDeEstoque(QueryEstoqueInicial);
-  Movimentacao := MovimentacaoPorProduto(PosicaoInicial);
+  Movimentacao := MovimentacaoPorProduto(PosicaoInicial, DataFim);
   try
-    Result := ProximaPosicaoDeEstoque(PosicaoInicial, Movimentacao)
+    Result := ProximaPosicaoDeEstoque(PosicaoInicial, Movimentacao);
   finally
     Movimentacao.Free;
   end;
